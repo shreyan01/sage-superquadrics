@@ -29,7 +29,7 @@ pip install sage-superquadrics
 from sage_superquadrics import SAGE
 
 # Loads a pretrained model, downloading and caching it on first use
-model = SAGE.load("SAGE_V2")
+model = SAGE.load("SAGE_V1")
 
 # point_cloud: an (N, 3) numpy array of XYZ points, isolating one object
 pred = model.predict(point_cloud)
