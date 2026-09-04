@@ -1,0 +1,78 @@
+name: Build and test
+
+# Runs on every push and PR -- automates the exact discipline used
+# manually while building this package: build the real wheel, install
+# it into a genuinely fresh environment (not the dev checkout, which
+# can hide import bugs a real install exposes), and run a real
+# functional test, not just an import check. This is exactly the kind
+# of check that caught two real deferred-import bugs during development
+# that a plain "does it import" test would have missed.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Build the package
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+
+      - name: Install into a fresh venv (not the dev checkout)
+        run: |
+          python -m venv /tmp/fresh_env
+          /tmp/fresh_env/bin/pip install dist/*.whl
+
+      - name: Real functional smoke test
+        run: |
+          /tmp/fresh_env/bin/python -c "
+          from sage_superquadrics import SAGE, Prediction, SAGEFitError
+          import numpy as np
+
+          model = SAGE()
+          rng = np.random.default_rng(0)
+
+          def fake_can_cloud(n=300):
+              theta = rng.uniform(0, 2*np.pi, n)
+              z = rng.uniform(-0.05, 0.05, n)
+              r = 0.03 + rng.normal(0, 0.001, n)
+              return np.stack([r*np.cos(theta), r*np.sin(theta), z], axis=1)
+
+          def fake_box_cloud(n=300):
+              return np.stack([
+                  rng.uniform(-0.04, 0.04, n),
+                  rng.uniform(-0.03, 0.03, n),
+                  rng.uniform(-0.06, 0.06, n),
+              ], axis=1)
+
+          for _ in range(15):
+              model.train(fake_can_cloud(), 'can')
+              model.train(fake_box_cloud(), 'box')
+
+          assert model.rebuild_classifier(), 'classifier failed to build'
+          pred = model.predict(fake_can_cloud())
+          assert isinstance(pred, Prediction)
+          assert pred.label in ('can', 'box')
+
+          model.save('/tmp/ci_test_model.json')
+          reloaded = SAGE.load('/tmp/ci_test_model.json', progress=False)
+          assert reloaded.categories() == model.categories()
+
+          print('CI smoke test passed.')
+          "

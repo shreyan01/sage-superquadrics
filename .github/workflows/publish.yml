@@ -1,0 +1,58 @@
+name: Publish to PyPI
+
+# Triggers when you publish a GitHub Release (the same release where
+# SAGE_V2.json gets attached as an asset -- one action, two outcomes).
+# Uses PyPI's Trusted Publishing (OIDC): no API token is generated or
+# stored as a GitHub secret at all. This requires a one-time,
+# manual setup on PyPI's website first -- see the comment at the
+# bottom of this file.
+
+on:
+  release:
+    types: [published]
+
+# Required for Trusted Publishing's OIDC token exchange -- without
+# this permission the publish step will fail with an auth error.
+permissions:
+  id-token: write
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build the package
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # No `with: password:` needed -- that's the whole point of
+        # Trusted Publishing. If you see an auth failure here, the
+        # one-time PyPI-side setup below wasn't completed correctly.
+
+# ---------------------------------------------------------------------
+# ONE-TIME SETUP REQUIRED ON PYPI'S WEBSITE (only I can't do this --
+# it needs your PyPI account):
+#
+#   1. Go to https://pypi.org/manage/project/sage-superquadrics/settings/publishing/
+#      (your existing project, since sage-superquadrics already exists at 0.3.1)
+#   2. Under "Trusted Publishers", click "Add a new publisher"
+#   3. Fill in:
+#        Owner:        shreyan01   (your GitHub username)
+#        Repository:   sage-superquadrics
+#        Workflow:     publish.yml
+#        Environment:  (leave blank unless you set one up)
+#   4. Save.
+#
+# After that one-time setup, every GitHub Release you publish on this
+# repo automatically builds and uploads to the REAL PyPI -- no token,
+# no manual `twine upload` ever needed again.
+# ---------------------------------------------------------------------
