@@ -11,9 +11,6 @@ requires-python = ">=3.9"
 license = { text = "Apache-2.0" }
 authors = [
     { name = "Shreyan Shukla" },
-    { name = "Suraj Paliwal" },
-    { name = "Akira Takahashi" },
-    { name = "Tomohiro Shibata" },
 ]
 keywords = ["robotics", "object-recognition", "superquadrics", "explainable-ai", "grasping", "point-cloud"]
 classifiers = [
